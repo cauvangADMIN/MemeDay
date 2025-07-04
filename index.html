@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>MemeEveryDay - Cười mỗi ngày</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css?family=Inter:400,600,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/index.css">
+</head>
+<body>
+  <!-- HEADER -->
+  <div class="header">
+    <span class="logo">MEMEEVERYDAY</span>
+    <div class="menu-toggle" id="menuToggle">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <div class="nav" id="mobileNav">
+      <a href="#" class="active">Trang chủ</a>
+      <a href="#">Mới nhất</a>
+      <a href="#">Xu hướng</a>
+      <a href="#">Yêu thích</a>
+      <a href="#">Tải lên</a>
+      <img src="https://randomuser.me/api/portraits/men/32.jpg" class="avatar" alt="user">
+    </div>
+  </div>
+  <div class="container">
+    <!-- SIDEBAR LEFT -->
+    <aside class="sidebar">
+      <input class="search-bar" placeholder="Tìm kiếm meme..." id="searchInput" />
+      <div class="card">
+        <strong>Chủ đề meme</strong>
+        <div class="chip-list" id="chipList"></div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" id="feed"></main>
+
+    <!-- SIDEBAR RIGHT -->
+    <aside class="sidebar-right">
+      <div class="info-card">
+        <div class="info-card-title">Về MemeEveryDay</div>
+        <div class="info-card-content">
+          Nơi chia sẻ những meme <b>hài hước, vui nhộn và thú vị</b> mỗi ngày!
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-title">Quy tắc</div>
+        <div class="info-card-content">
+          Hãy cùng nhau tạo nên một cộng đồng vui vẻ, <b>tôn trọng và thân thiện</b> với tất cả mọi người.
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-title">Thể loại meme</div>
+        <ul class="core-values">
+          <li class="core-value"><span class="core-value-icon">😂</span> Hài hước</li>
+          <li class="core-value"><span class="core-value-icon">🎮</span> Game</li>
+          <li class="core-value"><span class="core-value-icon">🎭</span> Anime</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+  
+  <!-- Nút cuộn lên đầu trang -->
+  <div class="scroll-top-btn" id="scrollTopBtn">↑</div>
+  
+  <!-- Thanh điều hướng dưới cho mobile -->
+  <div class="bottom-nav" id="bottomNav">
+    <a href="#" class="active"><div class="nav-icon">📰</div>Bản tin</a>
+    <a href="#"><div class="nav-icon">🔔</div>Thông báo</a>
+    <a href="#"><div class="nav-icon">👤</div>Tài khoản</a>
+    <a href="#"><div class="nav-icon">⋯</div>Xem thêm</a>
+  </div>
+  
+  <!-- Like/Comment Modal (simple) -->
+  <div id="modal">
+    <div>
+      <div id="modalText"></div>
+      <button onclick="closeModal()">Đóng</button>
+    </div>
+  </div>
+  <!-- Liên kết với file app.js -->  
+  <script src="app.js"></script>
+</body>
+</html>
