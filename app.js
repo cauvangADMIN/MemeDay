@@ -1,13 +1,22 @@
 // MemeEveryDay - App Logic
 
-// Meme data - Sẽ được thay thế bằng các ảnh từ thư mục assets/images/meme
+// Kết nối Supabase
+const supabaseUrl = 'https://zaskyftvhsjsmgdnejos.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inphc2t5ZnR2aHNqc21nZG5lam9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE3ODcxODgsImV4cCI6MjA2NzM2MzE4OH0.NyEOlbOsyz4s5jsTBvo5-9wt3zbETf3aq-gYHDOO_bM';
+// Sửa lại cách khởi tạo client Supabase
+const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+// Đường dẫn cơ sở đến bucket chứa ảnh meme
+const BUCKET_URL = 'https://zaskyftvhsjsmgdnejos.supabase.co/storage/v1/object/public/meme-images/';
+
+// Meme data - Sử dụng đường dẫn từ Supabase bucket
 const MEMES = [
-  { id: 1, img: "assets/images/meme/meme_01.jpg", likes: 42, comments: 7, liked: false },
-  { id: 2, img: "assets/images/meme/meme_02.jpg", likes: 28, comments: 5, liked: false },
-  { id: 3, img: "assets/images/meme/meme_03.jpg", likes: 35, comments: 9, liked: false },
-  { id: 4, img: "assets/images/meme/meme_04.jpg", likes: 19, comments: 3, liked: false },
-  { id: 5, img: "assets/images/meme/meme_05.jpg", likes: 56, comments: 12, liked: false },
-  { id: 6, img: "assets/images/meme/meme_06.jpg", likes: 31, comments: 6, liked: false }
+  { id: 1, img: `${BUCKET_URL}/meme_01.jpg`, likes: 42, comments: 7, liked: false },
+  { id: 2, img: `${BUCKET_URL}/meme_02.jpg`, likes: 28, comments: 5, liked: false },
+  { id: 3, img: `${BUCKET_URL}/meme_03.jpg`, likes: 35, comments: 9, liked: false },
+  { id: 4, img: `${BUCKET_URL}/meme_04.jpg`, likes: 19, comments: 3, liked: false },
+  { id: 5, img: `${BUCKET_URL}/meme_05.jpg`, likes: 56, comments: 12, liked: false },
+  { id: 6, img: `${BUCKET_URL}/meme_06.jpg`, likes: 31, comments: 6, liked: false }
 ];
 
 // Chủ đề meme
@@ -134,14 +143,45 @@ function setupSearch() {
   });
 }
 
+// Hàm lấy dữ liệu meme từ Supabase
+async function fetchMemesFromSupabase() {
+  try {
+    // Giả sử bạn có bảng 'memes' trong Supabase
+    const { data, error } = await supabase
+      .from('memes')
+      .select('*');
+    
+    if (error) throw error;
+    
+    // Cập nhật đường dẫn ảnh để sử dụng bucket
+    const processedData = data.map(meme => ({
+      ...meme,
+      img: `${BUCKET_URL}/${meme.img_filename}` // Giả sử có cột img_filename trong bảng
+    }));
+    
+    return processedData;
+  } catch (error) {
+    console.error('Lỗi khi lấy dữ liệu từ Supabase:', error);
+    return MEMES; // Trả về dữ liệu mặc định nếu có lỗi
+  }
+}
+
 // Khởi tạo trang
-function initPage() {
+async function initPage() {
   setupMobileMenu();
   setupScrollToTop();
   setupBottomNav();
   setupSearch();
   
   renderChips();
+  
+  // Bạn có thể bỏ comment dòng dưới đây nếu muốn lấy dữ liệu từ Supabase
+  // const memesData = await fetchMemesFromSupabase();
+  // if (memesData && memesData.length > 0) {
+  //   MEMES.length = 0; // Xóa dữ liệu cũ
+  //   MEMES.push(...memesData); // Thêm dữ liệu mới
+  // }
+  
   renderFeed();
 }
 
