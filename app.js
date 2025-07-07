@@ -69,33 +69,46 @@ function renderChips(selected) {
 
 // Xử lý like meme
 async function likeMeme(id) {
-  // Đổi trạng thái liked (chỉ để hiệu ứng local)
+  // Lấy trạng thái like từ localStorage
+  const likedMemes = JSON.parse(localStorage.getItem('liked_memes') || '{}');
+
+  if (likedMemes[id]) {
+    alert('Bạn đã like meme này rồi!');
+    return;
+  }
+
   const idx = MEMES.findIndex(m => m.id === id);
   if (idx < 0) return;
   const meme = MEMES[idx];
 
-  const newLikes = meme.liked ? meme.likes - 1 : meme.likes + 1;
-  meme.liked = !meme.liked;
-  meme.likes = newLikes;
+  meme.liked = true;
+  meme.likes += 1;
   renderFeed();
 
-  // Cập nhật lên server
+  // Update DB
   try {
     const { error } = await supabase
       .from('memes')
-      .update({ likes: newLikes })
+      .update({ likes: meme.likes })
       .eq('id', id);
-    if (error) throw error;
-
-    // Fetch lại data để đảm bảo đồng bộ
-    MEMES = await fetchMemesFromSupabase();
-    renderFeed();
+    if (error) {
+      // Nếu lỗi, rollback lại
+      meme.liked = false;
+      meme.likes -= 1;
+      renderFeed();
+      alert("Có lỗi khi lưu like lên server!");
+      return;
+    }
+    // Ghi lại trạng thái đã like vào localStorage
+    likedMemes[id] = true;
+    localStorage.setItem('liked_memes', JSON.stringify(likedMemes));
   } catch (err) {
-    alert("Có lỗi khi lưu like lên server!");
-    // Rollback lại local nếu muốn (option)
+    meme.liked = false;
+    meme.likes -= 1;
+    renderFeed();
+    alert("Có lỗi khi lưu like!");
   }
 }
-
 
 // Xử lý filter theo tag
 let currentTag = '';
@@ -171,17 +184,16 @@ async function fetchMemesFromSupabase() {
       .from('memes')
       .select('*')
       .order('id', { ascending: true });
-    console.log('Supabase data:', data, 'error:', error);
     if (error) throw error;
-    if (!data || !data.length) {
-      alert("Không có data trả về từ Supabase!");
-      return [];
-    }
+
+    // Lấy trạng thái liked từ localStorage
+    const likedMemes = JSON.parse(localStorage.getItem('liked_memes') || '{}');
+
     return data.map(meme => ({
       id: meme.id,
       img: `${BUCKET_URL}/${meme.img_filename}`,
       likes: meme.likes || 0,
-      liked: false
+      liked: !!likedMemes[meme.id]
     }));
   } catch (err) {
     console.error('Lỗi khi fetch:', err);
