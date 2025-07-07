@@ -3,21 +3,25 @@
 // Kết nối Supabase
 const supabaseUrl = 'https://zaskyftvhsjsmgdnejos.supabase.co';
 const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inphc2t5ZnR2aHNqc21nZG5lam9zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE3ODcxODgsImV4cCI6MjA2NzM2MzE4OH0.NyEOlbOsyz4s5jsTBvo5-9wt3zbETf3aq-gYHDOO_bM';
-// Sửa lại cách khởi tạo client Supabase
-const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+let supabase; // <-- chỉ khai báo let, KHÔNG const!
+
+// Đảm bảo thư viện Supabase đã được tải
+document.addEventListener('DOMContentLoaded', async function() {
+  // Nếu dùng window.supabase thì phải check đúng script đã load xong!
+  if (typeof window.supabase === 'undefined') {
+    alert('Thư viện Supabase chưa được load!');
+    return;
+  }
+  supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+  await initPage();
+});
 
 // Đường dẫn cơ sở đến bucket chứa ảnh meme
-const BUCKET_URL = 'https://zaskyftvhsjsmgdnejos.supabase.co/storage/v1/object/public/meme-images/';
+const BUCKET_URL = 'https://zaskyftvhsjsmgdnejos.supabase.co/storage/v1/object/public/meme-images';
 
-// Meme data - Sử dụng đường dẫn từ Supabase bucket
-const MEMES = [
-  { id: 1, img: `${BUCKET_URL}/meme_01.jpg`, likes: 42, comments: 7, liked: false },
-  { id: 2, img: `${BUCKET_URL}/meme_02.jpg`, likes: 28, comments: 5, liked: false },
-  { id: 3, img: `${BUCKET_URL}/meme_03.jpg`, likes: 35, comments: 9, liked: false },
-  { id: 4, img: `${BUCKET_URL}/meme_04.jpg`, likes: 19, comments: 3, liked: false },
-  { id: 5, img: `${BUCKET_URL}/meme_05.jpg`, likes: 56, comments: 12, liked: false },
-  { id: 6, img: `${BUCKET_URL}/meme_06.jpg`, likes: 31, comments: 6, liked: false }
-];
+// Meme data - Sẽ được cập nhật từ Supabase
+let MEMES = [];
 
 // Chủ đề meme
 const TOPICS = [
@@ -30,35 +34,30 @@ const TOPICS = [
 ];
 
 // Render meme feed
-function renderFeed(filterTag = '', keyword = '') {
+function renderFeed() {
   const el = document.getElementById("feed");
-  let data = MEMES;
-  
-  // Không cần filter theo tag và keyword vì đây là trang meme đơn giản
-  // Nhưng giữ lại tham số để tương thích với code gọi hàm
-  
-  el.innerHTML = data.map(meme => `
+  if (!MEMES.length) {
+    el.innerHTML = '<div class="card"><p>Không có meme nào để hiển thị.</p></div>';
+    return;
+  }
+  el.innerHTML = MEMES.map(meme => `
     <div class="card">
       <div class="post-header">
         <img src="https://randomuser.me/api/portraits/men/32.jpg" class="post-avatar"/>
-        <div>
-          <span class="post-author">Admin</span>
-        </div>
+        <div><span class="post-author">Admin</span></div>
       </div>
       <div class="meme-container">
-        <img src="${meme.img}" class="meme-image" alt="Meme">
+        <img src="${meme.img}" class="meme-image" alt="Meme" />
       </div>
       <div class="post-actions">
         <button class="action-btn${meme.liked?' liked':''}" onclick="likeMeme(${meme.id})">
           ❤️ <span>${meme.likes}</span>
         </button>
-        <button class="action-btn" onclick="openModal('Bình luận meme #${meme.id} (fake modal)')">
-          💬 ${meme.comments}
-        </button>
       </div>
     </div>
   `).join('');
 }
+
 
 // Render chủ đề
 function renderChips(selected) {
@@ -69,12 +68,34 @@ function renderChips(selected) {
 }
 
 // Xử lý like meme
-function likeMeme(id) {
+async function likeMeme(id) {
+  // Đổi trạng thái liked (chỉ để hiệu ứng local)
   const idx = MEMES.findIndex(m => m.id === id);
-  MEMES[idx].liked = !MEMES[idx].liked;
-  MEMES[idx].likes += MEMES[idx].liked ? 1 : -1;
-  renderFeed(currentTag, document.getElementById('searchInput').value);
+  if (idx < 0) return;
+  const meme = MEMES[idx];
+
+  const newLikes = meme.liked ? meme.likes - 1 : meme.likes + 1;
+  meme.liked = !meme.liked;
+  meme.likes = newLikes;
+  renderFeed();
+
+  // Cập nhật lên server
+  try {
+    const { error } = await supabase
+      .from('memes')
+      .update({ likes: newLikes })
+      .eq('id', id);
+    if (error) throw error;
+
+    // Fetch lại data để đảm bảo đồng bộ
+    MEMES = await fetchMemesFromSupabase();
+    renderFeed();
+  } catch (err) {
+    alert("Có lỗi khi lưu like lên server!");
+    // Rollback lại local nếu muốn (option)
+  }
 }
+
 
 // Xử lý filter theo tag
 let currentTag = '';
@@ -146,23 +167,25 @@ function setupSearch() {
 // Hàm lấy dữ liệu meme từ Supabase
 async function fetchMemesFromSupabase() {
   try {
-    // Giả sử bạn có bảng 'memes' trong Supabase
     const { data, error } = await supabase
       .from('memes')
-      .select('*');
-    
+      .select('*')
+      .order('id', { ascending: true });
+    console.log('Supabase data:', data, 'error:', error);
     if (error) throw error;
-    
-    // Cập nhật đường dẫn ảnh để sử dụng bucket
-    const processedData = data.map(meme => ({
-      ...meme,
-      img: `${BUCKET_URL}/${meme.img_filename}` // Giả sử có cột img_filename trong bảng
+    if (!data || !data.length) {
+      alert("Không có data trả về từ Supabase!");
+      return [];
+    }
+    return data.map(meme => ({
+      id: meme.id,
+      img: `${BUCKET_URL}/${meme.img_filename}`,
+      likes: meme.likes || 0,
+      liked: false
     }));
-    
-    return processedData;
-  } catch (error) {
-    console.error('Lỗi khi lấy dữ liệu từ Supabase:', error);
-    return MEMES; // Trả về dữ liệu mặc định nếu có lỗi
+  } catch (err) {
+    console.error('Lỗi khi fetch:', err);
+    return [];
   }
 }
 
@@ -172,18 +195,8 @@ async function initPage() {
   setupScrollToTop();
   setupBottomNav();
   setupSearch();
-  
   renderChips();
-  
-  // Bạn có thể bỏ comment dòng dưới đây nếu muốn lấy dữ liệu từ Supabase
-  // const memesData = await fetchMemesFromSupabase();
-  // if (memesData && memesData.length > 0) {
-  //   MEMES.length = 0; // Xóa dữ liệu cũ
-  //   MEMES.push(...memesData); // Thêm dữ liệu mới
-  // }
-  
+
+  MEMES = await fetchMemesFromSupabase();
   renderFeed();
 }
-
-// Gọi hàm khởi tạo khi trang đã tải xong
-document.addEventListener('DOMContentLoaded', initPage);
