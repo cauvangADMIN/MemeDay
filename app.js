@@ -44,7 +44,7 @@ function renderFeed() {
   el.innerHTML = MEMES.map(meme => `
     <div class="card">
       <div class="post-header">
-        <img src="https://randomuser.me/api/portraits/men/32.jpg" class="post-avatar"/>
+        <img src="assets/images/admin.jpg" class="post-avatar"/>
         <div><span class="post-author">Admin</span></div>
       </div>
       <div class="meme-container">
@@ -119,7 +119,7 @@ function filterByTag(tag) {
   renderChips(currentTag);
   // Chuyển đổi category sang chữ thường khi query
   const categoryQuery = currentTag ? currentTag.toLowerCase() : '';
-  fetchAndRenderMemes(categoryQuery);
+  fetchAndRenderMemes(categoryQuery, 'created_at', false);
 }
 
 // Xử lý modal
@@ -172,6 +172,31 @@ function setupBottomNav() {
   
   window.addEventListener('resize', toggleBottomNav);
   toggleBottomNav(); // Gọi lần đầu khi tải trang
+  
+  // Thêm sự kiện click cho các liên kết trong bottom-nav
+  const bottomNavLinks = document.querySelectorAll('#bottomNav a');
+  bottomNavLinks.forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      
+      // Xóa class active khỏi tất cả các liên kết
+      bottomNavLinks.forEach(l => l.classList.remove('active'));
+      
+      // Thêm class active cho liên kết được click
+      this.classList.add('active');
+      
+      // Đồng bộ với nav bar trên desktop
+      const linkText = this.textContent.trim();
+      const desktopNavLinks = document.querySelectorAll('.nav a');
+      
+      desktopNavLinks.forEach(desktopLink => {
+        if (desktopLink.textContent.trim() === linkText) {
+          // Kích hoạt sự kiện click trên liên kết desktop tương ứng
+          desktopLink.click();
+        }
+      });
+    });
+  });
 }
 
 // Xử lý tìm kiếm
@@ -188,10 +213,10 @@ function setupSearch() {
     } else if (currentTag) {
       // Nếu không có từ khóa tìm kiếm nhưng có category, hiển thị theo category
       const categoryQuery = currentTag.toLowerCase();
-      fetchAndRenderMemes(categoryQuery);
+      fetchAndRenderMemes(categoryQuery, 'created_at', false);
     } else {
       // Nếu không có từ khóa tìm kiếm và không có category, hiển thị tất cả
-      fetchAndRenderMemes();
+      fetchAndRenderMemes('', 'created_at', false);
     }
   });
 }
@@ -206,7 +231,7 @@ function renderFilteredMemes(filteredMemes) {
   el.innerHTML = filteredMemes.map(meme => `
     <div class="card">
       <div class="post-header">
-        <img src="https://randomuser.me/api/portraits/men/32.jpg" class="post-avatar"/>
+        <img src="assets/images/admin.jpg" class="post-avatar"/>
         <div><span class="post-author">Admin</span></div>
       </div>
       <div class="meme-container">
@@ -223,17 +248,19 @@ function renderFilteredMemes(filteredMemes) {
 }
 
 // Hàm lấy dữ liệu meme từ Supabase
-async function fetchMemesFromSupabase(category = '') {
+async function fetchMemesFromSupabase(category = '', sortBy = 'created_at', ascending = false) {
   try {
     let query = supabase
       .from('memes')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*');
     
     // Nếu có category được chọn, thêm điều kiện lọc
     if (category && category !== 'tổng hợp') {
       query = query.eq('category', category);
     }
+    
+    // Sắp xếp theo trường được chỉ định
+    query = query.order(sortBy, { ascending: ascending });
     
     const { data, error } = await query;
     if (error) throw error;
@@ -254,10 +281,93 @@ async function fetchMemesFromSupabase(category = '') {
   }
 }
 
-// Hàm fetch và render memes theo category
-async function fetchAndRenderMemes(category = '') {
-  MEMES = await fetchMemesFromSupabase(category);
+// Hàm fetch và render memes theo category và sắp xếp
+async function fetchAndRenderMemes(category = '', sortBy = 'created_at', ascending = false) {
+  MEMES = await fetchMemesFromSupabase(category, sortBy, ascending);
   renderFeed();
+}
+
+// Xử lý các nút trên nav bar
+function setupNavigation() {
+  // Lấy tất cả các liên kết trong nav
+  const navLinks = document.querySelectorAll('.nav a');
+  
+  // Thêm sự kiện click cho từng liên kết
+  navLinks.forEach(link => {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      
+      // Xóa class active khỏi tất cả các liên kết
+      navLinks.forEach(l => l.classList.remove('active'));
+      
+      // Thêm class active cho liên kết được click
+      this.classList.add('active');
+      
+      // Xử lý theo từng loại liên kết
+      const linkText = this.textContent.trim();
+      
+      switch(linkText) {
+        case 'Trang chủ':
+          // Hiển thị tất cả meme, sắp xếp theo created_at mới nhất
+          currentTag = '';
+          renderChips();
+          fetchAndRenderMemes('', 'created_at', false);
+          break;
+          
+        case 'Mới nhất':
+          // Hiển thị meme theo created_at, sắp xếp từ mới nhất đến cũ nhất
+          currentTag = '';
+          renderChips();
+          fetchAndRenderMemes('', 'created_at', false);
+          break;
+          
+        case 'Xu hướng':
+          // Hiển thị meme theo likes, sắp xếp từ nhiều nhất đến ít nhất
+          // Nhưng chỉ lấy những meme mới (trong 7 ngày gần đây)
+          currentTag = '';
+          renderChips();
+          fetchTrendingMemes();
+          break;
+          
+        case 'Yêu thích':
+          // Hiển thị meme theo likes, sắp xếp từ nhiều nhất đến ít nhất
+          currentTag = '';
+          renderChips();
+          fetchAndRenderMemes('', 'likes', false);
+          break;
+      }
+    });
+  });
+}
+
+// Hàm lấy meme xu hướng (mới và nhiều like)
+async function fetchTrendingMemes() {
+  try {
+    // Lấy meme mới (7 ngày gần đây) và sắp xếp theo lượt like
+    const { data, error } = await supabase
+      .from('memes')
+      .select('*')
+      .order('likes', { ascending: false });
+    
+    if (error) throw error;
+    
+    // Lấy trạng thái liked từ localStorage
+    const likedMemes = JSON.parse(localStorage.getItem('liked_memes') || '{}');
+    
+    MEMES = data.map(meme => ({
+      id: meme.id,
+      img: `${BUCKET_URL}/${meme.img_filename}`,
+      likes: meme.likes || 0,
+      liked: !!likedMemes[meme.id],
+      category: meme.category || ''
+    }));
+    
+    renderFeed();
+  } catch (err) {
+    console.error('Lỗi khi fetch xu hướng:', err);
+    MEMES = [];
+    renderFeed();
+  }
 }
 
 // Khởi tạo trang
@@ -266,8 +376,9 @@ async function initPage() {
   setupScrollToTop();
   setupBottomNav();
   setupSearch();
+  setupNavigation();
   renderChips();
 
   // Khi trang web được tải, hiển thị tất cả meme từ database, sắp xếp theo created_at mới nhất
-  await fetchAndRenderMemes();
+  await fetchAndRenderMemes('', 'created_at', false);
 }
