@@ -175,6 +175,17 @@ body {
   color: #fff;
   border: 1px solid #4e6fff;
 }
+/* Meme Category */
+.meme-category {
+  background: #f2f4f8;
+  color: #4e6fff;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  font-weight: 600;
+  margin-left: auto;
+  text-transform: uppercase;
+}
 /* Post Card */
 .post-header {
   display: flex;

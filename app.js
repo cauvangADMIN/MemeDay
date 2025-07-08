@@ -25,12 +25,13 @@ let MEMES = [];
 
 // Chủ đề meme
 const TOPICS = [
-  { label: "Funny", icon: "😂" },
+  { label: "Tổng hợp", icon: "🔍" },
+  { label: "Animal", icon: "🐱" },
   { label: "Anime", icon: "🎭" },
-  { label: "Gaming", icon: "🎮" },
-  { label: "Animals", icon: "🐱" },
-  { label: "Trending", icon: "🔥" },
-  { label: "Random", icon: "🎲" }
+  { label: "Human", icon: "👨" },
+  { label: "Dark", icon: "🌑" },
+  { label: "Game", icon: "🎮" },
+  { label: "Sex Joke", icon: "🔞" }
 ];
 
 // Render meme feed
@@ -53,6 +54,7 @@ function renderFeed() {
         <button class="action-btn${meme.liked?' liked':''}" onclick="likeMeme(${meme.id})">
           ❤️ <span>${meme.likes}</span>
         </button>
+        <span class="meme-category">${meme.category ? meme.category.toUpperCase() : 'UNCATEGORIZED'}</span>
       </div>
     </div>
   `).join('');
@@ -115,7 +117,9 @@ let currentTag = '';
 function filterByTag(tag) {
   currentTag = tag === currentTag ? '' : tag;
   renderChips(currentTag);
-  renderFeed(currentTag, document.getElementById('searchInput').value);
+  // Chuyển đổi category sang chữ thường khi query
+  const categoryQuery = currentTag ? currentTag.toLowerCase() : '';
+  fetchAndRenderMemes(categoryQuery);
 }
 
 // Xử lý modal
@@ -173,17 +177,65 @@ function setupBottomNav() {
 // Xử lý tìm kiếm
 function setupSearch() {
   document.getElementById('searchInput').addEventListener('input', (e) => {
-    renderFeed(currentTag, e.target.value);
+    const searchTerm = e.target.value.trim().toLowerCase();
+    if (searchTerm) {
+      // Lọc memes theo từ khóa tìm kiếm
+      const filteredMemes = MEMES.filter(meme => 
+        meme.category && meme.category.toLowerCase().includes(searchTerm)
+      );
+      // Cập nhật UI với kết quả lọc
+      renderFilteredMemes(filteredMemes);
+    } else if (currentTag) {
+      // Nếu không có từ khóa tìm kiếm nhưng có category, hiển thị theo category
+      const categoryQuery = currentTag.toLowerCase();
+      fetchAndRenderMemes(categoryQuery);
+    } else {
+      // Nếu không có từ khóa tìm kiếm và không có category, hiển thị tất cả
+      fetchAndRenderMemes();
+    }
   });
 }
 
+// Hàm render memes đã được lọc
+function renderFilteredMemes(filteredMemes) {
+  const el = document.getElementById("feed");
+  if (!filteredMemes.length) {
+    el.innerHTML = '<div class="card"><p>Không có meme nào phù hợp với tìm kiếm.</p></div>';
+    return;
+  }
+  el.innerHTML = filteredMemes.map(meme => `
+    <div class="card">
+      <div class="post-header">
+        <img src="https://randomuser.me/api/portraits/men/32.jpg" class="post-avatar"/>
+        <div><span class="post-author">Admin</span></div>
+      </div>
+      <div class="meme-container">
+        <img src="${meme.img}" class="meme-image" alt="Meme" />
+      </div>
+      <div class="post-actions">
+        <button class="action-btn${meme.liked?' liked':''}" onclick="likeMeme(${meme.id})">
+          ❤️ <span>${meme.likes}</span>
+        </button>
+        <span class="meme-category">${meme.category ? meme.category.toUpperCase() : 'UNCATEGORIZED'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
 // Hàm lấy dữ liệu meme từ Supabase
-async function fetchMemesFromSupabase() {
+async function fetchMemesFromSupabase(category = '') {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('memes')
       .select('*')
-      .order('id', { ascending: true });
+      .order('created_at', { ascending: false });
+    
+    // Nếu có category được chọn, thêm điều kiện lọc
+    if (category && category !== 'tổng hợp') {
+      query = query.eq('category', category);
+    }
+    
+    const { data, error } = await query;
     if (error) throw error;
 
     // Lấy trạng thái liked từ localStorage
@@ -193,12 +245,19 @@ async function fetchMemesFromSupabase() {
       id: meme.id,
       img: `${BUCKET_URL}/${meme.img_filename}`,
       likes: meme.likes || 0,
-      liked: !!likedMemes[meme.id]
+      liked: !!likedMemes[meme.id],
+      category: meme.category || ''
     }));
   } catch (err) {
     console.error('Lỗi khi fetch:', err);
     return [];
   }
+}
+
+// Hàm fetch và render memes theo category
+async function fetchAndRenderMemes(category = '') {
+  MEMES = await fetchMemesFromSupabase(category);
+  renderFeed();
 }
 
 // Khởi tạo trang
@@ -209,6 +268,6 @@ async function initPage() {
   setupSearch();
   renderChips();
 
-  MEMES = await fetchMemesFromSupabase();
-  renderFeed();
+  // Khi trang web được tải, hiển thị tất cả meme từ database, sắp xếp theo created_at mới nhất
+  await fetchAndRenderMemes();
 }
